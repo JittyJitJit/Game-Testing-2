@@ -5,116 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coal Express</title>
     <style>
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            text-align: center;
-            background-color: #1a1a1a;
-            color: #ecf0f1;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        #ui-container { margin-bottom: 15px; }
-
-        #scoreBoard {
-            font-size: 24px;
-            color: #f1c40f;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        canvas {
-            border: 5px solid #333;
-            background-color: #2c3e50;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-        }
-
-        #overlay {
-            position: absolute;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0, 0, 0, 0.8);
-            width: 400px;
-            height: 400px;
-            border-radius: 5px;
-        }
-
-        h2 { color: #e74c3c; margin-bottom: 10px; }
-
-        button {
-            padding: 10px 25px;
-            font-size: 18px;
-            background-color: #27ae60;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-
-        button:hover { background-color: #2ecc71; transform: scale(1.05); }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background-color: #1a1a1a; color: #ecf0f1; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; gap: 20px; }
+        #game-container { position: relative; display: flex; flex-direction: column; align-items: center; }
+        #scoreBoard { font-size: 24px; color: #f1c40f; font-weight: bold; margin-bottom: 10px; }
+        canvas { border: 5px solid #333; background-color: #2c3e50; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #leaderboard { background: #2c3e50; padding: 20px; border-radius: 10px; border: 2px solid #f1c40f; width: 200px; text-align: left; }
+        #overlay { position: absolute; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.85); top: 45px; width: 400px; height: 400px; z-index: 10; }
+        button { padding: 10px 25px; font-size: 18px; background-color: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div id="ui-container">
+    <div id="game-container">
         <div id="scoreBoard">Score: <span id="scoreValue">0</span></div>
-    </div>
-
-    <div style="position: relative;">
         <div id="overlay">
-            <h2>TRAIN CRASHED!</h2>
+            <h2 style="color:#e74c3c">TRAIN CRASHED!</h2>
             <button onclick="resetGame()">Start New Run</button>
         </div>
         <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <p>Use Arrow Keys or WASD</p>
     </div>
 
-    <p>Use Arrow Keys or WASD to Drive</p>
+    <div id="leaderboard">
+        <h3>Top Scores</h3>
+        <ol id="scoreList"></ol>
+    </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const scoreElement = document.getElementById("scoreValue");
         const overlay = document.getElementById("overlay");
+        const scoreList = document.getElementById("scoreList");
 
         const box = 20;
         let score = 0;
         let gameActive = true;
         let train, coal, d;
 
-        // Initialize game state
         function init() {
             score = 0;
             scoreElement.innerText = score;
             d = "RIGHT";
             gameActive = true;
             overlay.style.display = "none";
-            
-            // Initial Train position
-            train = [
-                {x: 9 * box, y: 10 * box},
-                {x: 8 * box, y: 10 * box},
-                {x: 7 * box, y: 10 * box}
-            ];
-
+            train = [{x: 9 * box, y: 10 * box}, {x: 8 * box, y: 10 * box}, {x: 7 * box, y: 10 * box}];
             spawnCoal();
+            updateLeaderboardUI();
         }
 
         function spawnCoal() {
-            coal = {
-                x: Math.floor(Math.random() * 19 + 1) * box,
-                y: Math.floor(Math.random() * 19 + 1) * box
-            };
+            coal = { x: Math.floor(Math.random() * 19) * box, y: Math.floor(Math.random() * 19) * box };
         }
 
-        // Handle Controls
         document.addEventListener("keydown", direction);
         function direction(event) {
             let key = event.keyCode;
@@ -124,32 +67,51 @@
             else if((key == 40 || key == 83) && d != "UP") d = "DOWN";
         }
 
-        function collision(head, array) {
-            for(let i = 0; i < array.length; i++) {
-                if(head.x == array[i].x && head.y == array[i].y) return true;
-            }
-            return false;
-        }
-
         function draw() {
             if (!gameActive) return;
 
+            // Background
             ctx.fillStyle = "#2c3e50";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // Draw Coal (Looks like a pile of coal)
+            ctx.fillStyle = "#111";
+            ctx.beginPath();
+            ctx.moveTo(coal.x + 10, coal.y + 2);
+            ctx.lineTo(coal.x + 18, coal.y + 18);
+            ctx.lineTo(coal.x + 2, coal.y + 18);
+            ctx.fill();
+
             // Draw Train
             for(let i = 0; i < train.length; i++) {
-                ctx.fillStyle = (i == 0) ? "#f1c40f" : "#95a5a6"; // Gold head, silver cars
-                ctx.fillRect(train[i].x, train[i].y, box, box);
-                ctx.strokeStyle = "#2c3e50";
-                ctx.strokeRect(train[i].x, train[i].y, box, box);
+                let isHead = (i === 0);
+                let x = train[i].x;
+                let y = train[i].y;
+
+                if (isHead) {
+                    // Locomotive Body
+                    ctx.fillStyle = "#e67e22"; 
+                    ctx.fillRect(x + 2, y + 4, 16, 12);
+                    // Chimney/Stack
+                    ctx.fillStyle = "#333";
+                    ctx.fillRect(x + 12, y + 1, 4, 5);
+                    // Cabin
+                    ctx.fillStyle = "#d35400";
+                    ctx.fillRect(x + 2, y + 2, 6, 6);
+                } else {
+                    // Train Carriage
+                    ctx.fillStyle = "#7f8c8d";
+                    ctx.fillRect(x + 2, y + 6, 16, 10);
+                    // Wheels
+                    ctx.fillStyle = "#111";
+                    ctx.fillRect(x + 4, y + 15, 3, 3);
+                    ctx.fillRect(x + 13, y + 15, 3, 3);
+                    // Connection line
+                    ctx.strokeStyle = "#95a5a6";
+                    ctx.beginPath(); ctx.moveTo(x + 18, y + 10); ctx.lineTo(x + 20, y + 10); ctx.stroke();
+                }
             }
 
-            // Draw Coal
-            ctx.fillStyle = "#1a1a1a";
-            ctx.fillRect(coal.x, coal.y, box, box);
-
-            // Logic: Old head position
             let trainX = train[0].x;
             let trainY = train[0].y;
 
@@ -158,38 +120,46 @@
             if( d == "RIGHT") trainX += box;
             if( d == "DOWN") trainY += box;
 
-            // Screen Wrapping Logic
             if (trainX < 0) trainX = canvas.width - box;
             else if (trainX >= canvas.width) trainX = 0;
             if (trainY < 0) trainY = canvas.height - box;
             else if (trainY >= canvas.height) trainY = 0;
 
-            // Check if train eats coal
+            let newHead = { x: trainX, y: trainY };
+
+            if(train.some((seg, index) => index !== 0 && seg.x === newHead.x && seg.y === newHead.y)) {
+                gameActive = false;
+                overlay.style.display = "flex";
+                saveScore(score);
+                return;
+            }
+
             if(trainX == coal.x && trainY == coal.y) {
                 score += 10;
                 scoreElement.innerText = score;
                 spawnCoal();
             } else {
-                train.pop(); // Remove tail
+                train.pop();
             }
-
-            let newHead = { x: trainX, y: trainY };
-
-            // Check Collision
-            if(collision(newHead, train)) {
-                gameActive = false;
-                overlay.style.display = "flex";
-            }
-
             train.unshift(newHead);
         }
 
-        function resetGame() {
-            init();
+        function saveScore(s) {
+            let scores = JSON.parse(localStorage.getItem("trainScores")) || [];
+            scores.push(s);
+            scores.sort((a, b) => b - a);
+            localStorage.setItem("trainScores", JSON.stringify(scores.slice(0, 5)));
+            updateLeaderboardUI();
         }
 
+        function updateLeaderboardUI() {
+            let scores = JSON.parse(localStorage.getItem("trainScores")) || [];
+            scoreList.innerHTML = scores.map(s => `<li>${s} pts</li>`).join("");
+        }
+
+        function resetGame() { init(); }
         init();
-        let game = setInterval(draw, 100);
+        setInterval(draw, 100);
     </script>
 </body>
 </html>
